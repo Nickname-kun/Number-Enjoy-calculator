@@ -4,10 +4,17 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>数楽電卓</title>
+  <script>
+    window.MathJax = {
+      tex: {
+        packages: {'[+]': ['ams']},
+      }
+    };
+  </script>
   <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
   <script id="MathJax-script" async
     src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-  <style>
+    <style>
     body {
       margin: 0;
       font-family: 'Segoe UI', sans-serif;
@@ -97,27 +104,36 @@
 <body>
   <div class="calculator">
     <div id="display">\(0\)</div>
+    <small style="display:block; margin-top: 5px; color: #aaa; font-size: 0.8em;">
+  ※ 有効桁数は最大15桁です
+    </small>
     <div class="buttons">
-      <button onclick="append('7')">7</button>
-      <button onclick="append('8')">8</button>
-      <button onclick="append('9')">9</button>
-      <button onclick="append('/')">÷</button>
-      <button onclick="append('4')">4</button>
-      <button onclick="append('5')">5</button>
-      <button onclick="append('6')">6</button>
-      <button onclick="append('*')">×</button>
-      <button onclick="append('1')">1</button>
-      <button onclick="append('2')">2</button>
-      <button onclick="append('3')">3</button>
-      <button onclick="append('-')">−</button>
-      <button onclick="append('0')">0</button>
-      <button onclick="append('.')">.</button>
-      <button onclick="calculate()">=</button>
-      <button onclick="append('+')">＋</button>
-      <button onclick="clearDisplay()" style="background-color: #aa4444;">C</button>
-      <button onclick="backspace()" style="background-color: #888;">⌫</button>
-      <button onclick="checkPrime()" style="grid-column: span 2; background-color: #44aa66;">素数判定</button>
-    </div>
+  <button onclick="append('7')">7</button>
+  <button onclick="append('8')">8</button>
+  <button onclick="append('9')">9</button>
+  <button onclick="append('/')">÷</button>
+
+  <button onclick="append('4')">4</button>
+  <button onclick="append('5')">5</button>
+  <button onclick="append('6')">6</button>
+  <button onclick="append('*')">×</button>
+
+  <button onclick="append('1')">1</button>
+  <button onclick="append('2')">2</button>
+  <button onclick="append('3')">3</button>
+  <button onclick="append('-')">−</button>
+
+  <button onclick="append('0')">0</button>
+  <button onclick="append('.')">.</button>
+  <button onclick="calculate()">=</button>
+  <button onclick="append('+')">＋</button>
+
+  <button onclick="clearDisplay()" style="background-color: #aa4444;">C</button>
+  <button onclick="backspace()" style="background-color: #888;">⌫</button>
+  <button onclick="appendPowerSymbol()">^</button>
+  <button onclick="appendSqrtSymbol()">√</button>
+  <button onclick="checkPrime()" style="grid-column: span 2; background-color: #44aa66;">素数判定</button>
+</div>
 
     <button id="historyToggle" onclick="toggleHistory()">履歴を表示/非表示</button>
     <div id="history">
@@ -131,9 +147,33 @@
     let historyVisible = false;
 
     function renderMath() {
-      document.getElementById("display").innerHTML = `\\(${currentExpression || '0'}\\)`;
-      MathJax.typesetPromise();
-    }
+  const display = document.getElementById("display");
+  let expr = currentExpression || "0";
+
+  // 数字の長さに応じてフォントサイズ変更
+  const length = expr.replace(/[^0-9]/g, '').length;
+  if (length > 20) {
+    display.style.fontSize = "1.0em";
+  } else if (length > 15) {
+    display.style.fontSize = "1.3em";
+  } else {
+    display.style.fontSize = "1.8em";
+  }
+
+  // MathJax のエラー防止処理
+  let safeExpr = expr;
+  // `^` や `√` の直後が空でないか確認し、不完全ならそのまま表示しない
+  if (/(\^|\√)\s*$/.test(safeExpr)) {
+    display.innerHTML = `式を完成させてください`;
+  } else if (safeExpr.startsWith("\\(") || safeExpr.startsWith("\\[")) {
+    display.innerHTML = safeExpr;
+  } else {
+    display.innerHTML = `\\(${safeExpr}\\)`;
+  }
+
+  MathJax.typesetPromise();
+}
+
 
     function append(value) {
       currentExpression += value;
@@ -150,22 +190,64 @@
       renderMath();
     }
 
-    function calculate() {
-      try {
-        let result = eval(currentExpression);
-        if (!isFinite(result)) {
-          currentExpression = "\\text{無効です（0で割れません）}";
-        } else {
-          addToHistory(currentExpression, result);
-          currentExpression = result.toString();
-        }
-        renderMath();
-      } catch {
-        currentExpression = "\\text{エラー}";
-        renderMath();
-      }
+   function calculate() {
+  try {
+    let expr = currentExpression;
+
+    // 括弧補完
+    const open = (expr.match(/\(/g) || []).length;
+    const close = (expr.match(/\)/g) || []).length;
+    if (open > close) {
+      expr += ')'.repeat(open - close);
     }
 
+    // ^ の処理（右結合のべき乗） → Math.pow(a, b)
+    expr = expr.replace(/([0-9.]+)\s*\^\s*([0-9.]+)/g, "Math.pow($1, $2)");
+
+    // √ の処理 → Math.sqrt(x)
+    expr = expr.replace(/√\s*([0-9.]+)/g, "Math.sqrt($1)");
+
+    const result = eval(expr);
+
+    if (!isFinite(result)) {
+      currentExpression = "\\text{無効です（0で割れません）}";
+    } else {
+      addToHistory(currentExpression, result);
+      currentExpression = result.toString();
+    }
+    renderMath();
+  } catch {
+    currentExpression = "\\text{エラー}";
+    renderMath();
+  }
+}
+
+    function appendPowerSymbol() {
+  currentExpression += "^";
+  renderMath();
+}
+    
+function handleExponentInput(event) {
+  if (event.key === "Enter") {
+    const exponent = event.target.value;
+    const input = document.getElementById("exponentInput");
+
+    // 式を完成させる
+    currentExpression += exponent + ")";
+    renderMath();
+
+    // 入力欄を隠す
+    input.value = "";
+    input.style.display = "none";
+  }
+}
+
+
+function appendSqrtSymbol() {
+  currentExpression += "√";
+  renderMath();
+}
+    
     function isPrime(n) {
       n = Number(n);
       if (n <= 1 || !Number.isInteger(n)) return false;
@@ -184,7 +266,7 @@
           currentExpression = `\\(${value}\\ \\text{は整数ではありません}\\)`;
         } else {
           const result = isPrime(value);
-          currentExpression = `\\(${value}\\ \\text{は${result ? '素数' : '素数ではありません'}}\\)`;
+          currentExpression = `\\(${value}\\ \\text{は${result ? '素数' : '素数ではない'}}\\)`;
         }
         renderMath();
       } catch {
