@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>数楽電卓</title>
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async
+    src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: #1e1e2f;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 100vh;
+      overflow-y: auto;
+    }
+    .calculator {
+      background: #2e2e3f;
+      padding: 20px;
+      border-radius: 20px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+      width: 340px;
+      margin-top: 30px;
+    }
+    #display {
+      min-height: 50px;
+      margin-bottom: 15px;
+      font-size: 1.8em;
+      background-color: #1e1e2f;
+      padding: 10px;
+      border-radius: 10px;
+      border: 1px solid #444;
+      text-align: right;
+      word-break: break-word;
+    }
+    .buttons {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+    button {
+      padding: 15px;
+      font-size: 1.1em;
+      border: none;
+      border-radius: 8px;
+      background-color: #444;
+      color: white;
+      transition: 0.2s;
+    }
+    button:hover {
+      background-color: #666;
+    }
+    #historyToggle {
+      margin-top: 15px;
+      background-color: #555;
+      width: 100%;
+    }
+    #history {
+      margin-top: 10px;
+      max-height: 250px;
+      overflow-y: auto;
+      background-color: #111827;
+      padding: 10px;
+      border-radius: 10px;
+      display: none;
+    }
+    .history-item {
+      border-bottom: 1px solid #333;
+      padding: 5px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .history-math {
+      flex: 1;
+    }
+    .reuse-btn {
+      background-color: #3080d0;
+      font-size: 0.8em;
+      padding: 6px 8px;
+      border-radius: 6px;
+      border: none;
+    }
+    .clear-history {
+      background-color: #aa4444;
+      margin-top: 8px;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+  <div class="calculator">
+    <div id="display">\(0\)</div>
+    <div class="buttons">
+      <button onclick="append('7')">7</button>
+      <button onclick="append('8')">8</button>
+      <button onclick="append('9')">9</button>
+      <button onclick="append('/')">÷</button>
+      <button onclick="append('4')">4</button>
+      <button onclick="append('5')">5</button>
+      <button onclick="append('6')">6</button>
+      <button onclick="append('*')">×</button>
+      <button onclick="append('1')">1</button>
+      <button onclick="append('2')">2</button>
+      <button onclick="append('3')">3</button>
+      <button onclick="append('-')">−</button>
+      <button onclick="append('0')">0</button>
+      <button onclick="append('.')">.</button>
+      <button onclick="calculate()">=</button>
+      <button onclick="append('+')">＋</button>
+      <button onclick="clearDisplay()" style="background-color: #aa4444;">C</button>
+      <button onclick="backspace()" style="background-color: #888;">⌫</button>
+      <button onclick="checkPrime()" style="grid-column: span 2; background-color: #44aa66;">素数判定</button>
+    </div>
+
+    <button id="historyToggle" onclick="toggleHistory()">履歴を表示/非表示</button>
+    <div id="history">
+      <div id="historyList"></div>
+      <button class="clear-history" onclick="clearHistory()">履歴をクリア</button>
+    </div>
+  </div>
+
+  <script>
+    let currentExpression = "";
+    let historyVisible = false;
+
+    function renderMath() {
+      document.getElementById("display").innerHTML = `\\(${currentExpression || '0'}\\)`;
+      MathJax.typesetPromise();
+    }
+
+    function append(value) {
+      currentExpression += value;
+      renderMath();
+    }
+
+    function backspace() {
+      currentExpression = currentExpression.slice(0, -1);
+      renderMath();
+    }
+
+    function clearDisplay() {
+      currentExpression = "";
+      renderMath();
+    }
+
+    function calculate() {
+      try {
+        let result = eval(currentExpression);
+        if (!isFinite(result)) {
+          currentExpression = "\\text{無効です（0で割れません）}";
+        } else {
+          addToHistory(currentExpression, result);
+          currentExpression = result.toString();
+        }
+        renderMath();
+      } catch {
+        currentExpression = "\\text{エラー}";
+        renderMath();
+      }
+    }
+
+    function isPrime(n) {
+      n = Number(n);
+      if (n <= 1 || !Number.isInteger(n)) return false;
+      for (let i = 2; i <= Math.sqrt(n); i++) {
+        if (n % i === 0) return false;
+      }
+      return true;
+    }
+
+    function checkPrime() {
+      try {
+        const value = Number(eval(currentExpression));
+        if (!isFinite(value)) {
+          currentExpression = "\\text{無効です（0で割れません）}";
+        } else if (!Number.isInteger(value)) {
+          currentExpression = `\\(${value}\\ \\text{は整数ではありません}\\)`;
+        } else {
+          const result = isPrime(value);
+          currentExpression = `\\(${value}\\ \\text{は${result ? '素数' : '素数ではありません'}}\\)`;
+        }
+        renderMath();
+      } catch {
+        currentExpression = "\\text{計算できません}";
+        renderMath();
+      }
+    }
+
+    function addToHistory(expr, result) {
+      const historyList = document.getElementById("historyList");
+      const entry = document.createElement("div");
+      entry.className = "history-item";
+
+      const mathSpan = document.createElement("span");
+      mathSpan.className = "history-math";
+      mathSpan.innerHTML = `\\(${expr} = ${result}\\)`;
+
+      const reuseBtn = document.createElement("button");
+      reuseBtn.className = "reuse-btn";
+      reuseBtn.textContent = "再利用";
+      reuseBtn.onclick = () => {
+        currentExpression = expr;
+        renderMath();
+      };
+
+      entry.appendChild(mathSpan);
+      entry.appendChild(reuseBtn);
+      historyList.prepend(entry);
+
+      MathJax.typesetPromise();
+    }
+
+    function toggleHistory() {
+      historyVisible = !historyVisible;
+      document.getElementById("history").style.display = historyVisible ? "block" : "none";
+    }
+
+    function clearHistory() {
+      document.getElementById("historyList").innerHTML = "";
+    }
+
+    renderMath();
+  </script>
+</body>
+</html>
