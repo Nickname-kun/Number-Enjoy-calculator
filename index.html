@@ -261,7 +261,7 @@ function appendSqrtSymbol() {
       try {
         const value = Number(eval(currentExpression));
         if (!isFinite(value)) {
-          currentExpression = "\\text{無効です（0で割れません）}";
+          currentExpression = "\\text{無効です}";
         } else if (!Number.isInteger(value)) {
           currentExpression = `\\(${value}\\ \\text{は整数ではありません}\\)`;
         } else {
